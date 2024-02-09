@@ -2,26 +2,24 @@ import { useContext, useMemo } from "react"
 
 import { TimeInfoContext } from "../Calendar"
 import { TimeInfo } from "../types/types"
+import moment from "moment"
 
 export default function CalendarHeader() {
   const timeInfo = useContext<TimeInfo>(TimeInfoContext)
   const disTanceDayInfo = useMemo(() => {
+    const now = moment(`${timeInfo.year}-${timeInfo.month}-${timeInfo.day}`)
+    const diffDate = moment(`${timeInfo.yearOnView}-${timeInfo.monthOnView}-${timeInfo.dayOnView}`)
+    const diffDays = diffDate.diff(now, 'days')
     return {
-      day: Math.abs(timeInfo.day),
-      distanceChinese: timeInfo.day > 0 ? '后' : '前',
-      show: timeInfo.day !== 0
+      day: Math.abs(diffDays),
+      distanceChinese: diffDays > 0 ? '后' : '前',
+      show: diffDays !== 0
     }
-  }, [timeInfo.day])
-  const year = useMemo(() => {
-    return timeInfo.year
-  }, [timeInfo.year])
-  const month = useMemo(() => {
-    return timeInfo.month 
-  }, [timeInfo.month])
+  }, [timeInfo])
   return <div className=" flex justify-between ">
     <div className=" relative top-7 mb-7">
       <span className=" text-4xl">
-        {year}/{month}
+        {timeInfo.yearOnView}/{timeInfo.monthOnView}
       </span>
       {disTanceDayInfo.show && <span>
         {disTanceDayInfo.day}天{disTanceDayInfo.distanceChinese}

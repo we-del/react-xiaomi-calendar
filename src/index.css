@@ -6,7 +6,8 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   /* 禁止浏览器拖拽 */
-  touch-action: none;
+  /* touch-action: none; */
+  overflow: hidden;
 }
 
 code {
