@@ -1,7 +1,7 @@
 /*
  * @Author: 李云翔
  * @Date: 2024-02-06 18:01:13
- * @LastEditTime: 2024-02-09 22:56:47
+ * @LastEditTime: 2024-02-10 21:44:04
  * @FilePath: \react\hook-test\src\views\MIUI_Calendar\Calendar.tsx
  * @Description: 小米ui组件实现
  * 
@@ -20,13 +20,12 @@ export default function Calendar() {
   const [timeInfo, setTimeInfoState] = useState<TimeInfo>({
     year: now.getFullYear(),
     month: now.getMonth() + 1,
-    // month: now.getMonth(),
     day: now.getDate(),
     yearOnView: now.getFullYear(),
     monthOnView: now.getMonth() + 1,
-    // monthOnView: now.getMonth(),
     dayOnView: now.getDate(),
     viewMode: ViewMode.MONTH,
+    shengXiaoForYear: "",
   })
   const setSelectedDate = useCallback((dayInfo: DayInfo) => {
     const selectedDate = new Date(dayInfo.fullDate)
@@ -41,7 +40,7 @@ export default function Calendar() {
     const now = moment(`${timeInfo.year}-${timeInfo.month}-${timeInfo.day}`)
     const diffDate = moment(`${timeInfo.yearOnView}-${timeInfo.monthOnView}-${timeInfo.dayOnView}`)
     const diffDays = diffDate.diff(now, 'days')
-    return diffDays !== 0
+    return diffDays !== 0 && timeInfo.viewMode === ViewMode.MONTH
   }, [timeInfo])
   return <TimeInfoContext.Provider value={{ ...timeInfo, setSelectedDate, setTimeInfoState }}>
     <div className=" flex-col p-4 ">

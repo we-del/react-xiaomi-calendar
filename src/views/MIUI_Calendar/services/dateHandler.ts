@@ -2,7 +2,7 @@ import moment from "moment";
 import { DayInfo, TimeInfo } from "../types/types";
 import { ViewMode } from "../config/dayEnum";
 import { Lunar, Solar, HolidayUtil } from 'lunar-typescript'
-export function getDayList(timeInfo: TimeInfo, dayPosition: number): DayInfo[] {
+export function getDayList(timeInfo: TimeInfo, dayPosition: number): DayInfo[] | DayInfo[][] {
   if (timeInfo.viewMode == ViewMode.YEAR) {
     return getYearList(timeInfo);
   } else if (timeInfo.viewMode == ViewMode.MONTH) {
@@ -13,11 +13,20 @@ export function getDayList(timeInfo: TimeInfo, dayPosition: number): DayInfo[] {
   return []
 }
 
-function getYearList(timeInfo: TimeInfo): DayInfo[] {
-  return
+function getYearList(timeInfo: TimeInfo): DayInfo[][] {
+  const dayInfoList = []
+  for (let i = 1; i <= 12; i++) {
+    const dayList = getMonthList({
+      ...timeInfo,
+      monthOnView: i
+    }).map(day => day.dateFromTheMonth ? day : {})
+
+    dayInfoList.push(dayList)
+  }
+  return dayInfoList
 }
 
-function getMonthList(timeInfo: TimeInfo, dayPosition: number): DayInfo[] {
+function getMonthList(timeInfo: TimeInfo, dayPosition: number = 0): DayInfo[] {
   const { yearOnView, dayOnView, monthOnView } = timeInfo;
   let curDate = moment(`${yearOnView}-${monthOnView + dayPosition} `)
 
@@ -37,7 +46,6 @@ function getMonthList(timeInfo: TimeInfo, dayPosition: number): DayInfo[] {
     const day = i - startDayOnCurMonth + 1
     if (i < startDayOnCurMonth) {
       dayList[i] = getDetailDayInfo(new Date(yearOnView, monthOnView - 1 + dayPosition, day), timeInfo)
-
       continue;
     }
     dayList[i] = getDetailDayInfo(new Date(yearOnView, monthOnView - 1 + dayPosition, day), timeInfo)

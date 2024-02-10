@@ -8,7 +8,7 @@ export type TimeInfo = {
   monthOnView?: number;
   dayOnView?: number;
   viewMode?: ViewMode
-
+  shengXiaoForYear?: string
 }
 
 export type TimeInfoContextType = TimeInfo & {
@@ -29,7 +29,7 @@ export type DayInfo = {
   isWeekend?: boolean
   // 星期几
   weekDay?: string | number,
-  // 日期全路径
+  // 日期全路径(yyyy-mm-dd) fullDate?: string
   fullDate?: string
   // 当前数据是否来自本月
   dateFromTheMonth?: boolean
