@@ -4,7 +4,7 @@ import { ViewMode } from "../config/dayEnum";
 import { Lunar, Solar, HolidayUtil } from 'lunar-typescript'
 export function getDayList(timeInfo: TimeInfo, dayPosition: number): DayInfo[] | DayInfo[][] {
   if (timeInfo.viewMode == ViewMode.YEAR) {
-    return getYearList(timeInfo);
+    return getYearList(timeInfo, dayPosition);
   } else if (timeInfo.viewMode == ViewMode.MONTH) {
     return getMonthList(timeInfo, dayPosition);
   } else if (timeInfo.viewMode == ViewMode.WEEK) {
@@ -13,27 +13,47 @@ export function getDayList(timeInfo: TimeInfo, dayPosition: number): DayInfo[] |
   return []
 }
 
-function getYearList(timeInfo: TimeInfo): DayInfo[][] {
+function getYearList(timeInfo: TimeInfo, dayPosition: number): DayInfo[][] {
   const dayInfoList = []
   for (let i = 1; i <= 12; i++) {
     const dayList = getMonthList({
       ...timeInfo,
       monthOnView: i
-    }).map(day => day.dateFromTheMonth ? day : {})
+    }, dayPosition).map(day => day.dateFromTheMonth ? day : {})
 
     dayInfoList.push(dayList)
   }
   return dayInfoList
 }
 
-function getMonthList(timeInfo: TimeInfo, dayPosition: number = 0): DayInfo[] {
-  const { yearOnView, dayOnView, monthOnView } = timeInfo;
-  let curDate = moment(`${yearOnView}-${monthOnView + dayPosition} `)
+function buildDetailDayInfoParams(timeInfo: TimeInfo & { offset: number, timeInfo: TimeInfo }) {
+  const { year, offset, day, month } = timeInfo;
+  if (timeInfo.viewMode == ViewMode.YEAR) {
+    return new Date(
+      year + offset, month, day)
+  }
+  if (timeInfo.viewMode == ViewMode.MONTH) {
+    return new Date(
+      year, month + offset, day)
+  }
+}
 
-  if (monthOnView + dayPosition == 0) {
-    curDate = moment(`${yearOnView - 1}-${12} `)
-  } else if (monthOnView + dayPosition == 13) {
-    curDate = moment(`${yearOnView + 1}-${1} `)
+function getMonthList(timeInfo: TimeInfo, dayPosition: number): DayInfo[] {
+  const { yearOnView, viewMode, monthOnView } = timeInfo;
+  let curDate = null
+  if (viewMode == ViewMode.YEAR) {
+    curDate = moment(`${yearOnView + dayPosition}-${monthOnView} `)
+  }
+  if (viewMode == ViewMode.MONTH) {
+    curDate = moment(`${yearOnView}-${monthOnView + dayPosition} `)
+  }
+
+  if (viewMode == ViewMode.MONTH) {
+    if (monthOnView + dayPosition == 0) {
+      curDate = moment(`${yearOnView - 1}-${12} `)
+    } else if (monthOnView + dayPosition == 13) {
+      curDate = moment(`${yearOnView + 1}-${1} `)
+    }
   }
   const daysOnCurMonth = curDate.daysInMonth();
   const startDayOnCurMonth = parseInt(curDate.startOf('month').format('d'))
@@ -45,16 +65,43 @@ function getMonthList(timeInfo: TimeInfo, dayPosition: number = 0): DayInfo[] {
     }
     const day = i - startDayOnCurMonth + 1
     if (i < startDayOnCurMonth) {
-      dayList[i] = getDetailDayInfo(new Date(yearOnView, monthOnView - 1 + dayPosition, day), timeInfo)
+      dayList[i] = getDetailDayInfo(
+        buildDetailDayInfoParams({
+          year: yearOnView,
+          month: monthOnView - 1,
+          day,
+          offset: dayPosition,
+          viewMode: timeInfo.viewMode,
+          timeInfo,
+        })
+        , timeInfo)
       continue;
     }
-    dayList[i] = getDetailDayInfo(new Date(yearOnView, monthOnView - 1 + dayPosition, day), timeInfo)
+    dayList[i] = getDetailDayInfo(
+      buildDetailDayInfoParams({
+        year: yearOnView,
+        month: monthOnView - 1,
+        day,
+        offset: dayPosition,
+        viewMode: timeInfo.viewMode,
+        timeInfo,
+      })
+      , timeInfo)
   }
   let index = dayList.findIndex(dayInfo => !dayInfo)
   if (index !== -1) {
     for (index; index < dayList.length; index++) {
       const day = index - startDayOnCurMonth + 1
-      dayList[index] = getDetailDayInfo(new Date(yearOnView, monthOnView - 1 + dayPosition, day), timeInfo)
+      dayList[index] = getDetailDayInfo(
+        buildDetailDayInfoParams({
+          year: yearOnView,
+          month: monthOnView - 1,
+          day,
+          offset: dayPosition,
+          viewMode: timeInfo.viewMode,
+          timeInfo,
+        })
+        , timeInfo)
     }
   }
   return dayList
@@ -69,7 +116,7 @@ function getWeekList(timeInfo: TimeInfo): DayInfo[] {
  * @param {Date} date
  * @return {*}
  */
-function getDetailDayInfo(date: Date, timeInfo: TimeInfo): DayInfo {
+export function getDetailDayInfo(date: Date, timeInfo: TimeInfo): DayInfo {
   const lunar = Lunar.fromDate(date)
   const solar = Solar.fromDate(date)
   const dateForMoment = moment(date)
@@ -84,8 +131,19 @@ function getDetailDayInfo(date: Date, timeInfo: TimeInfo): DayInfo {
     dateFromTheMonth: date.getMonth() + 1 == timeInfo.monthOnView,
     isToday: dateForMoment.isSame(moment(`${year}-${month}-${day}`), 'day'),
     isSelected: dateForMoment.isSame(moment(`${yearOnView}-${monthOnView}-${dayOnView}`), 'day'),
+    yiList: lunar.getDayYi(),
+    jiList: lunar.getDayJi(),
+    chineseDateName: '农历' + lunar.getMonthInChinese() + '月' + lunar.getDayInChinese(),
+    chineseYearName: lunar.getYearInGanZhi() + lunar.getShengxiao() + '年',
+    chineseMonthName: lunar.getMonthInGanZhi() + '月',
+    chineseDayName: lunar.getDayInGanZhi() + '日',
   }
 
+  if (dayInfo.chineseDateName.includes('腊月廿三')) {
+    dayInfo.chineseDay = '北方小年'
+  } else if (dayInfo.chineseDateName.includes('腊月廿四')) {
+    dayInfo.chineseDay = '南方小年'
+  }
   // 用于区分法定节假日和调休
   const holiday = HolidayUtil.getHoliday(dateForMoment.format('YYYY-MM-DD'))
   if (holiday) {
@@ -97,6 +155,7 @@ function getDetailDayInfo(date: Date, timeInfo: TimeInfo): DayInfo {
   const festivalsForLunar = lunar.getFestivals()
   const festivalsForSolar = solar.getFestivals()
   festivalList.push(...festivalsForSolar, ...festivalsForLunar)
+  dayInfo.festivalList = festivalList
   /**
    * 中文名规则,如果当前包含节气,月初,法定节价值的,优先响应
    */

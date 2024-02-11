@@ -9,6 +9,8 @@ export type TimeInfo = {
   dayOnView?: number;
   viewMode?: ViewMode
   shengXiaoForYear?: string
+  selectDateDetailInfoOnView?: DayInfo
+  todayDateDetailInfo?: DayInfo
 }
 
 export type TimeInfoContextType = TimeInfo & {
@@ -37,4 +39,16 @@ export type DayInfo = {
   isToday?: boolean
   // 判断当前日期是否被选中(如果选中的是当前字体变为白色,添加浅蓝色背景)
   isSelected?: boolean
+  // 事宜
+  yiList?: string[]
+  // 事忌
+  jiList?: string[]
+  // 农历当日全名称
+  chineseDateName?: string
+  // 农历当年全名称
+  chineseYearName?: string
+  chineseMonthName?: string
+  chineseDayName?: string
+  // 当前日期的节日集合
+  festivalList?: string[]
 }

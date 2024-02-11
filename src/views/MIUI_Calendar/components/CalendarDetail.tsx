@@ -1,15 +1,16 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { forwardRef, useContext, useEffect, useRef, useState } from "react";
 import { ViewMode, dayList } from "../config/dayEnum";
 import { TimeInfoContext } from "../Calendar";
 import type { DayInfo, TimeInfo, TimeInfoContextType } from "../types/types";
-import { getDayList } from "../services/dateHandler";
+import { getDayList, getDetailDayInfo } from "../services/dateHandler";
 import moment from "moment";
 
 export default function CalendarDetail() {
   const timeInfo = useContext<TimeInfoContextType>(TimeInfoContext); // 获取日历上下文
+  const [innerContextHeight, setInnerContextHeightState] = useState<number>(0)
   const [divEleTranslateX, setDivEleTranslateXState] = useState<number>(0)
   const divEleRef = useRef<HTMLDivElement>(null); // 创建一个ref来获取日历元素
-
+  const DateDetailDivEleRef = useRef<HTMLDivElement>(null);
   // 监听页面滚动
   useEffect(() => {
     let timeOnTouchStart = 0
@@ -26,7 +27,8 @@ export default function CalendarDetail() {
       const yearOnView = timeInfo.yearOnView + (slideDistance > 0 ? -1 : 1)
       timeInfo.setTimeInfoState({
         ...timeInfo,
-        yearOnView
+        yearOnView,
+        selectDateDetailInfoOnView: getDetailDayInfo(new Date(yearOnView, timeInfo.monthOnView - 1, timeInfo.dayOnView), timeInfo)
       })
     }
     const handleSlideForMonth = (slideDistance) => {
@@ -35,13 +37,15 @@ export default function CalendarDetail() {
         timeInfo.setTimeInfoState({
           ...timeInfo,
           monthOnView: 12,
-          yearOnView: timeInfo.yearOnView - 1
+          yearOnView: timeInfo.yearOnView - 1,
+          selectDateDetailInfoOnView: getDetailDayInfo(new Date(timeInfo.yearOnView - 1, 11, timeInfo.dayOnView), timeInfo)
         })
       } else if (monthOnView == 13) {
         timeInfo.setTimeInfoState({
           ...timeInfo,
           monthOnView: 1,
-          yearOnView: timeInfo.yearOnView + 1
+          yearOnView: timeInfo.yearOnView + 1,
+          selectDateDetailInfoOnView: getDetailDayInfo(new Date(timeInfo.yearOnView + 1, 0, timeInfo.dayOnView), timeInfo)
         })
       } else {
         const totalDays = moment(`${timeInfo.yearOnView}-${monthOnView}`).daysInMonth()
@@ -53,6 +57,7 @@ export default function CalendarDetail() {
         if (totalDays < timeInfo.dayOnView) {
           newState.dayOnView = totalDays
         }
+        newState.selectDateDetailInfoOnView = getDetailDayInfo(new Date(timeInfo.yearOnView, monthOnView - 1, newState.dayOnView), timeInfo)
         timeInfo.setTimeInfoState(newState)
       }
     }
@@ -92,9 +97,11 @@ export default function CalendarDetail() {
       initCacheTouchParams()
     }
 
-    divEleRef.current?.addEventListener('touchstart', divEleRefTouchStartEvent)
-    divEleRef.current?.addEventListener('touchmove', divEleRefTouchMoveEvent)
-    divEleRef.current?.addEventListener('touchend', divEleRefTouchEndEvent)
+    setInnerContextHeightState(DateDetailDivEleRef.current?.clientHeight)
+
+    divEleRef.current?.addEventListener('touchstart', divEleRefTouchStartEvent, { passive: true })
+    divEleRef.current?.addEventListener('touchmove', divEleRefTouchMoveEvent, { passive: true })
+    divEleRef.current?.addEventListener('touchend', divEleRefTouchEndEvent, { passive: true })
 
     return () => {
       divEleRef.current?.removeEventListener('touchstart', divEleRefTouchStartEvent)
@@ -102,27 +109,30 @@ export default function CalendarDetail() {
       divEleRef.current?.removeEventListener('touchstart', divEleRefTouchEndEvent)
     }
   }, [timeInfo])
-  return <div className="my-2 ">
+  return <div className="my-2 flex-1 ">
     {(timeInfo.viewMode == ViewMode.MONTH || timeInfo.viewMode == ViewMode.WEEK) && <WeekHeader />}
-    <div className=" relative transition" ref={divEleRef} style={{ transform: `translateX(${divEleTranslateX}px)` }}>
+    <div className=" relative " ref={divEleRef} style={{ transform: `translateX(${divEleTranslateX}px)`, height: innerContextHeight }}>
       <DateDetail dayPosition={-1} />
-      <DateDetail dayPosition={0} />
+      <DateDetail dayPosition={0} ref={DateDetailDivEleRef} />
       <DateDetail dayPosition={1} />
     </div>
+    {timeInfo.viewMode == ViewMode.MONTH && <SelectDayItemDetailInfo />}
   </div>
 }
 
-function DateDetail(props) {
-  const timeInfo = useContext<TimeInfo>(TimeInfoContext); // 获取日历上下文
+const DateDetail = forwardRef(function (props: any, ref: any) {
+  const timeInfo = useContext<TimeInfoContextType>(TimeInfoContext); // 获取日历上下文
   const dayPosition = props.dayPosition;
   const dayList: DayInfo[] | DayInfo[][] = getDayList(timeInfo, dayPosition)
+
+
   const getLeftForStyle = () => {
     if (dayPosition == -1) { return '-100vw' }
     if (dayPosition == 0) { return '0' }
     if (dayPosition == 1) { return '100vw' }
   }
   if (timeInfo.viewMode == ViewMode.MONTH || timeInfo.viewMode == ViewMode.WEEK) {
-    return <div className=" w-full grid grid-cols-7 gap-2 my-4 absolute" style={{ left: getLeftForStyle() }}>
+    return <div className=" w-full grid grid-cols-7 gap-2 my-4 absolute" style={{ left: getLeftForStyle() }} ref={ref}>
       {
         dayList.map((dayInfo, i) => <DayItem dayInfo={dayInfo} key={i} />)
       }
@@ -130,14 +140,14 @@ function DateDetail(props) {
   }
 
   if (timeInfo.viewMode == ViewMode.YEAR) {
-    return <div className=" w-full grid grid-cols-3 gap-4 my-4 absolute" style={{ left: getLeftForStyle() }}>
+    return <div className=" w-full grid grid-cols-3 gap-4 my-4 absolute" style={{ left: getLeftForStyle() }} >
       {
         dayList.map((dayInfo, i) => <MonthItem dayInfo={dayInfo as DayInfo[]} month={i + 1} key={i} />)
       }
     </div>
   }
   return <></>
-}
+})
 function WeekHeader() {
   const { viewMode } = useContext<TimeInfoContextType>(TimeInfoContext)
   return <div className="grid grid-cols-7 gap-2 ">
@@ -148,11 +158,18 @@ function MonthItem({ dayInfo, month }: { dayInfo: DayInfo[], month: number }) {
   const todayInMonth = dayInfo.find(day => day.isToday)
   const timeInfo = useContext<TimeInfoContextType>(TimeInfoContext)
   const setViewForDate = () => {
-    timeInfo.setTimeInfoState({
+    const totalDays = moment(`${timeInfo.yearOnView}-${month}`).daysInMonth()
+    // 得到现在的dayOnView值,如果比最新月份的最大值大则dayOnView变为当前月份最大值
+    const newState = {
       ...timeInfo,
       monthOnView: month,
-      viewMode: ViewMode.MONTH
-    })
+      viewMode: ViewMode.MONTH,
+    }
+    if (totalDays < timeInfo.dayOnView) {
+      newState.dayOnView = totalDays
+    }
+    newState.selectDateDetailInfoOnView = getDetailDayInfo(new Date(timeInfo.yearOnView, newState.monthOnView - 1, newState.dayOnView), timeInfo)
+    timeInfo.setTimeInfoState(newState)
   }
   return <div className=" flex-col " onClick={setViewForDate}>
     <div className=" text-lg font-bold " style={todayInMonth && { color: "rgb(59, 130, 246)" }}>{month}月</div>
@@ -207,7 +224,7 @@ function DayItemForMonth({ dayInfo }: { dayInfo: DayInfo }) {
   return <div className={dayStyles} onClick={() => setSelectedDate(dayInfo)}>
     {isHoliday && <div style={{ fontSize: 10, color: getHolidayColor() }} className=" absolute right-0 -top-1">{dayInfo.isWorkDay ? '班' : dayInfo.isRestDay ? '休' : ''}</div>}
     <div style={{ fontSize: 14 }}>{dayInfo.day}</div>
-    <div style={{ fontSize: 10 }}>{dayInfo.chineseDay}</div>
+    <div style={{ fontSize: 11 }}>{dayInfo.chineseDay}</div>
   </div>
 }
 
@@ -226,7 +243,38 @@ function DayItemForYear({ dayInfo }: { dayInfo: DayInfo }) {
   </>
 }
 
+function SelectDayItemDetailInfo() {
+  const { selectDateDetailInfoOnView } = useContext<TimeInfoContextType>(TimeInfoContext)
+  const { isRestDay, isWorkDay, chineseDateName, chineseYearName, chineseMonthName, chineseDayName, yiList, jiList } = selectDateDetailInfoOnView
+  // 展示休假或调休符号
+  const showFestivalSign = isRestDay || isWorkDay
+  return <div className=" rounded bg-gray-200 p-2 mt-20 text-left">
+    <div className=" text-md font-bold">{chineseDateName}</div>
+    <div className=" my-2" style={{ fontSize: 12 }}>
+      {showFestivalSign && <span>
+        <span className={isRestDay ? 'text-blue-400' : 'text-red-500'}>
+          {isRestDay ? "休" : "班"}
+        </span>
+        <i className="mx-1">|</i></span>}
+      <span>{chineseYearName} {chineseMonthName} {chineseDayName}</span>
+    </div>
+    <div className=" grid grid-cols-2 gap-2" style={{ fontSize: 11 }}>
+      <div className=" overflow-hidden text-ellipsis ">
+        <span className=" p-1 m-1 rounded text-white bg-orange-300">宜</span>
+        {
+          yiList?.map((item, index) => <span key={index} className=" "> {item} </span>)
+        }
+      </div>
+      <div className=" overflow-hidden text-ellipsis ">
+        <span className=" p-1 m-1 rounded text-white bg-gray-700">忌</span>
+        {
+          jiList?.map((item, index) => <span key={index} className=" "> {item} </span>)
+        }
 
+      </div>
+    </div>
+  </div>
+}
 
 
 
