@@ -64,19 +64,7 @@ function getMonthList(timeInfo: TimeInfo, dayPosition: number): DayInfo[] {
       dayList = dayList.concat(new Array(7).fill(null))
     }
     const day = i - startDayOnCurMonth + 1
-    if (i < startDayOnCurMonth) {
-      dayList[i] = getDetailDayInfo(
-        buildDetailDayInfoParams({
-          year: yearOnView,
-          month: monthOnView - 1,
-          day,
-          offset: dayPosition,
-          viewMode: timeInfo.viewMode,
-          timeInfo,
-        })
-        , timeInfo)
-      continue;
-    }
+
     dayList[i] = getDetailDayInfo(
       buildDetailDayInfoParams({
         year: yearOnView,
